@@ -90,11 +90,11 @@ npm run typecheck    # TypeScript check
 npm test             # charting regression tests
 ```
 
-**No API key is needed for charting.** The open-source version contains **no backend routes**: AI interpretation (`/api/interpret`) and compatibility analysis (`/api/heming`) return 404 until you implement them yourself.
+**No API key is needed for charting.** This local tree provides `/api/interpret` and `/api/heming` adapters for the local Kimi Code service. Set `KIMI_CODE_TOKEN` in `.env.local` for AI answers; charting works without it.
 
 ## What is not included
 
-The interpretation database (`lib/ziwei/db-analysis.ts` is a placeholder), AI prompts, all `/api/*` backend routes, user accounts, payments, deployment configuration, and — for the 1.6-million-frame reading — the full Cornell notes (kept in a private repository) and any video frames.
+The interpretation database (`lib/ziwei/db-analysis.ts` is a placeholder), commercial AI prompts and backend implementation, user accounts, payments, deployment configuration, and — for the 1.6-million-frame reading — the full Cornell notes (kept in a private repository) and any video frames.
 
 ## Interpretation dataset v4.0 (674,976 charts × 13 topics, 2026-10-15)
 

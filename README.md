@@ -301,12 +301,15 @@ cd ziwei-doushu
 # 安装依赖
 npm install
 
-# 配置环境变量（只看排盘可以跳过；AI 配置仅在你自己实现了 /api/* 接口时才用得上）
+# 配置本机 Kimi Code Token（只看排盘可以跳过；这不是 Kimi API Key）
 cp .env.example .env.local
+# 将 kimi web 启动横幅中的 Token 填入 KIMI_CODE_TOKEN
 
 # 启动开发服务器
 npm run dev
 ```
+
+Windows 也可以双击 `start.bat`，同时启动 Next.js 与本机 Kimi Code 服务；双击 `stop.bat` 关闭两者。Kimi Code 未登录或未配置 Token 时，只影响 AI 问答，不影响排盘。
 
 本地验证：
 
@@ -317,7 +320,7 @@ npm test            # 排盘引擎回归（768 盘 × 紫微铁律、夏令时�
 
 每次 push 与 PR 都会在 GitHub Actions 上跑同一套（见 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)）。
 
-> **注意：开源版不含后端 API 路由。**排盘、命盘展示、合盘起盘都在浏览器里用本仓库的引擎完成，**不需要任何 API Key**。AI 解读（`/api/interpret`）和合盘 AI 分析（`/api/heming`）需要你自己实现接口；没实现之前，这两处会直接提示「开源版不含该接口」，配置 API Key 也不会变成可用（#30 就是这个原因）。
+> **注意：当前本地版已提供 `/api/interpret` 与 `/api/heming` 适配接口。**它们连接本机 Kimi Code 服务，不直接调用 Kimi API。使用前需在 `.env.local` 设置 `KIMI_CODE_TOKEN`；未设置时 AI 问答会提示配置方法，排盘、命盘展示与合盘起盘不受影响。
 
 ---
 
@@ -447,7 +450,7 @@ npm test            # 排盘引擎回归（768 盘 × 紫微铁律、夏令时�
 
 **Demo 能跑通的**：出生信息表单、命盘方格与宫位详情、本命 / 大限 / 流年切换、古籍阅读器（全文搜索）、命理百科（14 主星 × 12 宫位）、亮暗主题、移动端适配。
 
-**Demo 里没有的**：线上重做过的交互界面、AI 流式解读、合盘图谱、分享卡片，以及**断语内容本身**（`db-analysis.ts` 是占位实现）。也就是说，Demo 画得出盘，但给不出线上那套解读。
+**Demo 里没有的**：线上重做过的交互界面、完整商业版 AI 解读、合盘图谱、分享卡片，以及**断语内容本身**（`db-analysis.ts` 是占位实现）。当前本地版可通过 Kimi Code 使用基础流式问答，但不等同于线上商业版的解读能力。
 
 ---
 
@@ -456,7 +459,7 @@ npm test            # 排盘引擎回归（768 盘 × 紫微铁律、夏令时�
 | | 内容 |
 |---|---|
 | ✅ **开源** | 排盘引擎（`lib/ziwei/`）、古籍公版原文（`lib/classics/`）、SEO 知识图谱（`lib/seo/`）、Demo 界面、51.8 万样本数据集、13 维解读数据集 v4.0、160 万帧逐帧精读的方法 / 脚本 / 提示词与 17 集公开摘要（`research/nishi-video-reading/`） |
-| ❌ **不开源** | 断语库（`lib/ziwei/db-analysis.ts` 是占位，线上是上万行的 13 主题断语）、AI 解读 prompt、后端 API（`/api/interpret` 等）、用户系统（登录 / 会员 / 支付）、服务端安全（签名、防刷、水印）、部署配置、160 万帧精读的康奈尔笔记正文（私有仓库）与视频画面 / 帧图片 |
+| ❌ **不开源** | 断语库（`lib/ziwei/db-analysis.ts` 是占位，线上是上万行的 13 主题断语）、线上商业版 AI 解读 prompt 与后端实现、用户系统（登录 / 会员 / 支付）、服务端安全（签名、防刷、水印）、部署配置、160 万帧精读的康奈尔笔记正文（私有仓库）与视频画面 / 帧图片 |
 
 如果你需要 AI 解读能力，可以参考 `lib/ziwei/patterns.ts` 和 `heming-knowledge.ts` 里的知识库，结合任意 LLM 自行构建 prompt。
 

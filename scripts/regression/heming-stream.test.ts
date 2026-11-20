@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
+import { consumeSseResponse, readApiError } from '../../lib/sse-client';
 
 // Feed real byte chunks through the page's original reader callback.
 const source = readFileSync(new URL('../../app/heming/page.tsx', import.meta.url), 'utf8');
@@ -10,7 +11,8 @@ assert.ok(start >= 0 && end > start);
 const body = `export function makeRun(ctx) {
   const {chartA,chartB,formA,formB,generateChart,formToBirthInfo,setFormError,
     setAnalyzing,setAnalysis,setAnalysisError,setChartA,setChartB,fetch,
-    setApiMissing,analysisRef} = ctx;
+    setApiMissing,analysisRef,consumeSseResponse,readApiError,setAnalysisErrorMessage,
+    conversationId,chartContextKey} = ctx;
   const useCallback = (fn) => fn;
   ${source.slice(start, end)}
   return runAnalysis;
@@ -31,6 +33,8 @@ async function consume(chunks: Uint8Array[]) {
     setAnalysis: (value: string) => { text = value; },
     setAnalysisError: (value: boolean) => { failed = value; },
     setApiMissing: noop, analysisRef: { current: null },
+    consumeSseResponse, readApiError, setAnalysisErrorMessage: noop,
+    conversationId: { current: null }, chartContextKey: { current: '' },
     fetch: async () => ({ status: 200, ok: true, body: new ReadableStream({
       start(controller) { for (const chunk of chunks) controller.enqueue(chunk); controller.close(); },
     }) }),

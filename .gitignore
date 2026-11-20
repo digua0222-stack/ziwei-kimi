@@ -1,5 +1,6 @@
 node_modules/
 .next/
+.ziwei-dev/
 .vercel/
 .env*
 !.env.example

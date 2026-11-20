@@ -6,6 +6,7 @@ import { formToBirthInfo } from '@/lib/ziwei/share';
 import { generateChart as buildChart } from '@/lib/ziwei/algorithm';
 import type { BirthInfo, ZiweiChart } from '@/lib/ziwei/types';
 import { useTheme } from '@/components/ThemeProvider';
+import { consumeSseResponse, readApiError } from '@/lib/sse-client';
 
 // ─── AiContent 渲染器（与 InsightPanel 一致）────────────────
 function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
@@ -64,10 +65,13 @@ export default function HemingPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [question, setQuestion] = useState('');
   const [analysisError, setAnalysisError] = useState(false);
-  // 开源版不含 /api/heming：接口 404 时单独说明，而不是让用户反复重试
+  const [analysisErrorMessage, setAnalysisErrorMessage] = useState('');
+  // 本地接口由 app/api/heming/route.ts 提供；404 仅用于识别其他部署缺少接口的情况
   const [apiMissing, setApiMissing] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const analysisRef = useRef<HTMLDivElement>(null);
+  const conversationId = useRef<string | null>(null);
+  const chartContextKey = useRef('');
 
   // ─── 起盘（单次调用，返回 chart 给统一流程使用）──────────
   // 开源版不含后端 /api/generate：直接用本仓库的排盘引擎在浏览器里起盘
@@ -93,6 +97,7 @@ export default function HemingPage() {
     setAnalyzing(true);
     setAnalysis('');
     setAnalysisError(false);
+    setAnalysisErrorMessage('');
 
     try {
       // 每次按当前表单起盘，避免编辑出生信息后复用旧盘。
@@ -108,40 +113,37 @@ export default function HemingPage() {
       setChartA(cA);
       setChartB(cB);
 
+      const nextContextKey = JSON.stringify([cA.birthInfo, cB.birthInfo]);
+      if (chartContextKey.current !== nextContextKey) {
+        chartContextKey.current = nextContextKey;
+        conversationId.current = crypto.randomUUID();
+      }
+      if (!conversationId.current) conversationId.current = crypto.randomUUID();
+
       const res = await fetch('/api/heming', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chartA: cA, chartB: cB, question: q ?? undefined }),
+        body: JSON.stringify({
+          chartA: cA,
+          chartB: cB,
+          question: q ?? undefined,
+          conversationId: conversationId.current,
+        }),
       });
       if (res.status === 404) { setApiMissing(true); throw new Error('api-missing'); }
-      if (!res.ok || !res.body) throw new Error();
+      if (!res.ok) throw new Error(await readApiError(res, '合盘分析请求失败'));
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
       let text = '';
-      let pendingLine = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        pendingLine += decoder.decode(value, { stream: true });
-        const lines = pendingLine.split('\n');
-        pendingLine = lines.pop() ?? '';
-        for (const rawLine of lines) {
-          const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6);
-          if (data === '[DONE]') break;
-          try {
-            const delta = JSON.parse(data).delta?.text ?? '';
-            text += delta;
-            setAnalysis(text);
-          } catch { /* skip */ }
-        }
-      }
+      await consumeSseResponse(res, delta => {
+        text += delta;
+        setAnalysis(text);
+      });
       // scroll to analysis
       setTimeout(() => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-    } catch {
+    } catch (error) {
+      setAnalysisErrorMessage(error instanceof Error && error.message !== 'api-missing'
+        ? error.message
+        : '分析暂时不可用，请重试。');
       setAnalysisError(true);
     } finally {
       setAnalyzing(false);
@@ -285,8 +287,8 @@ export default function HemingPage() {
           {analysisError && (
             <div style={{ padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--bdr)', background: 'var(--bg-card)', fontSize: '13px', color: 'var(--tx-2)', marginTop: '12px' }}>
               {apiMissing
-                ? '开源版不含合盘 AI 分析接口（/api/heming），需要你自己实现后才能用。两人的命盘可以分别到「排盘」页（/chart）查看。'
-                : '分析暂时不可用，请重试。'}
+                ? '当前部署未提供合盘 AI 分析接口（/api/heming）。本地运行请参考 README 配置 Kimi Code；两人的命盘也可分别到「排盘」页查看。'
+                : analysisErrorMessage || '分析暂时不可用，请重试。'}
             </div>
           )}
         </div>

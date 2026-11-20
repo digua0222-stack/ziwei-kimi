@@ -3,7 +3,7 @@
 欢迎提问题、提修复、提建议。先说清两件事，能省掉很多来回：
 
 - 本仓库是 [ouranic.cn](https://ouranic.cn/?from=gh-contrib) 排盘引擎的**开源快照**，定期从线上同步（节奏见 README「维护节奏与贡献」）。
-- 开源版**不含**断语库、AI 解读提示词和任何 `/api/*` 后端接口（见 README「开源边界」）。AI 解读、合盘分析在开源版里返回 404 是预期行为，需要你自己实现。
+- 上游开源快照**不含**商业版断语库、AI 解读提示词和线上后端实现。当前本地版另提供连接本机 Kimi Code 的 `/api/interpret` 与 `/api/heming` 适配接口，需在 `.env.local` 配置 `KIMI_CODE_TOKEN`。
 
 ## 提问题
 
@@ -37,4 +37,4 @@ npm test             # 排盘回归
 
 ---
 
-**English.** Issues and PRs are welcome. This repo is an open snapshot of the charting engine behind ouranic.cn; the interpretation database, AI prompts and all `/api/*` backend routes are not included, so AI features return 404 by design. For a chart you believe is wrong, please use the "Chart result question" form with full birth data and a reference result. Before opening a PR, run `npm ci`, `npm run typecheck` and `npm test`; changes to chart results need evidence and a regression test.
+**English.** Issues and PRs are welcome. This repo is an open snapshot of the charting engine behind ouranic.cn; the interpretation database, AI prompts and the commercial backend are not included; this local tree adds Kimi Code adapters that require `KIMI_CODE_TOKEN`. For a chart you believe is wrong, please use the "Chart result question" form with full birth data and a reference result. Before opening a PR, run `npm ci`, `npm run typecheck` and `npm test`; changes to chart results need evidence and a regression test.
