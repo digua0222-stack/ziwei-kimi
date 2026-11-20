@@ -17,6 +17,8 @@ interface PalaceCellProps {
   onStarClick?: (star: Star) => void;
   isSelected?: boolean;
   isSanFang?: boolean;
+  isDaXianView?: boolean;
+  isSelectedDaXian?: boolean;
   delay?: number;
   /** 叠加四化：星名 → 四化类型（'禄'/'权'/'科'/'忌'） */
   overlayStarSiHua?: Record<string, string>;
@@ -62,9 +64,13 @@ const SiHuaBadge = ({
 
 export default function PalaceCell({
   palace, onClick, onStarClick, isSelected, isSanFang, delay = 0,
+  isDaXianView = false, isSelectedDaXian = false,
   overlayStarSiHua, overlayLabel, onSiHuaClick, shierShen,
 }: PalaceCellProps) {
   const { branch, stem, name, stars, daXianAge, isCurrentDaXian, isMingGong, isShenGong } = palace;
+  const emphasizeCurrentDaXian = !!isCurrentDaXian && !isDaXianView;
+  const emphasizeSelectedDaXian = !!isDaXianView && !!isSelectedDaXian;
+  const emphasizeDaXian = emphasizeCurrentDaXian || emphasizeSelectedDaXian;
   const ganzhi = `${STEMS[stem]}${BRANCHES[branch]}`;
 
   const majorStars = stars.filter(s => s.type === 'major');
@@ -77,11 +83,13 @@ export default function PalaceCell({
       initial={{ opacity: 0, scale: 0.92 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.35, delay, ease: 'easeOut' }}
+      data-daxian-current={emphasizeCurrentDaXian || undefined}
+      data-daxian-selected={emphasizeSelectedDaXian || undefined}
       onClick={onClick}
       className="relative flex flex-col p-1.5 cursor-pointer transition-all duration-200 h-full"
       style={{
         minHeight: '90px',
-        background: isCurrentDaXian
+        background: emphasizeDaXian
           ? 'rgba(147,51,234,0.08)'
           : isSelected
           ? 'rgba(37,99,235,0.18)'
@@ -90,7 +98,7 @@ export default function PalaceCell({
           : isMingGong
           ? 'rgba(212,168,67,0.04)'
           : 'var(--t-bg)',
-        boxShadow: isCurrentDaXian
+        boxShadow: emphasizeDaXian
           ? 'inset 3px 0 0 rgba(147,51,234,0.5)'
           : isSelected
           ? 'inset 0 0 0 1.5px rgba(37,99,235,0.7)'
@@ -103,9 +111,9 @@ export default function PalaceCell({
       {daXianAge && (
         <div className={clsx(
           'absolute top-1 right-1 text-[9px] font-mono tabular-nums',
-          isCurrentDaXian ? 'text-purple-400' : ''
+          emphasizeDaXian ? 'text-purple-400' : ''
         )}
-          style={!isCurrentDaXian ? { color: 'var(--t-faint)', opacity: 0.75 } : undefined}
+          style={!emphasizeDaXian ? { color: 'var(--t-faint)', opacity: 0.75 } : undefined}
         >
           {daXianAge[0]}–{daXianAge[1]}
         </div>

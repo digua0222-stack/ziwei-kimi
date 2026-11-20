@@ -9,8 +9,10 @@ interface TimeNavProps {
   chart: ZiweiChart;
   view: TimeView;
   liunianYear: number;
+  selectedDaXianIndex: number;
   onViewChange: (view: TimeView) => void;
   onYearChange: (year: number) => void;
+  onDaXianChange: (index: number) => void;
 }
 
 /** 由年份计算天干索引 (0-9) */
@@ -30,6 +32,25 @@ export function buildSiHuaOverlay(stemIndex: number): Record<string, string> {
   };
 }
 
+export function getInitialDaXianIndex(chart: ZiweiChart): number {
+  if (chart.currentDaXianIndex >= 0 && chart.currentDaXianIndex < chart.daXians.length) {
+    return chart.currentDaXianIndex;
+  }
+  return chart.daXians.length > 0 ? 0 : -1;
+}
+
+export function moveDaXianSelection(
+  chart: ZiweiChart,
+  selectedIndex: number,
+  offset: number,
+): number {
+  if (!chart.daXians.length) return -1;
+  const safeIndex = selectedIndex >= 0 && selectedIndex < chart.daXians.length
+    ? selectedIndex
+    : getInitialDaXianIndex(chart);
+  return Math.max(0, Math.min(chart.daXians.length - 1, safeIndex + offset));
+}
+
 const SIHUA_COLORS: Record<string, string> = {
   '禄': '#4ade80',
   '权': '#60a5fa',
@@ -41,19 +62,21 @@ export default function TimeNav({
   chart,
   view,
   liunianYear,
+  selectedDaXianIndex,
   onViewChange,
   onYearChange,
+  onDaXianChange,
 }: TimeNavProps) {
-  const currentDx = chart.daXians[chart.currentDaXianIndex];
+  const selectedDx = chart.daXians[selectedDaXianIndex];
+  const selectedDxPalace = selectedDx
+    ? chart.palaces.find(p => p.branch === selectedDx.palaceBranch)
+    : undefined;
 
-  // 计算当前叠加四化信息
   const getOverlayInfo = (): { stemName: string; overlay: Record<string, string> } | null => {
     if (view === 'mingpan') return null;
 
-    if (view === 'daxian' && currentDx) {
-      const dxPalace = chart.palaces.find(p => p.branch === currentDx.palaceBranch);
-      if (!dxPalace) return null;
-      const stemIndex = dxPalace.stem;
+    if (view === 'daxian' && selectedDxPalace) {
+      const stemIndex = selectedDxPalace.stem;
       return {
         stemName: STEMS[stemIndex],
         overlay: buildSiHuaOverlay(stemIndex),
@@ -72,6 +95,11 @@ export default function TimeNav({
   };
 
   const overlayInfo = getOverlayInfo();
+  const changeDaXian = (index: number) => {
+    if (index < 0 || index >= chart.daXians.length) return;
+    onDaXianChange(index);
+    if (view !== 'daxian') onViewChange('daxian');
+  };
 
   return (
     <div className="mb-3">
@@ -88,13 +116,61 @@ export default function TimeNav({
           本命
         </TabButton>
 
-        {/* 大限 */}
-        <TabButton
-          active={view === 'daxian'}
-          onClick={() => onViewChange('daxian')}
+        {/* 大限 — 下拉直选 + 前后切换 */}
+        <div
+          className="relative flex-1 flex items-center justify-center rounded-lg py-1.5 gap-0.5 transition-all duration-200 min-w-0"
+          style={{
+            background: view === 'daxian' ? 'rgba(212,168,67,0.12)' : 'transparent',
+            border: view === 'daxian' ? '1px solid rgba(212,168,67,0.25)' : '1px solid transparent',
+          }}
         >
-          {currentDx ? `大限 ${currentDx.startAge}–${currentDx.endAge}` : '大限'}
-        </TabButton>
+          <button
+            type="button"
+            aria-label="上一限"
+            title="上一限"
+            disabled={selectedDaXianIndex <= 0}
+            onClick={() => changeDaXian(moveDaXianSelection(chart, selectedDaXianIndex, -1))}
+            className="text-[11px] w-4 h-4 flex items-center justify-center rounded disabled:opacity-20"
+            style={{ color: 'var(--t-faint)', flexShrink: 0 }}
+          >
+            ‹
+          </button>
+          <select
+            aria-label="选择大限"
+            title="选择大限"
+            value={selectedDaXianIndex}
+            disabled={!chart.daXians.length}
+            onClick={() => { if (view !== 'daxian') onViewChange('daxian'); }}
+            onChange={e => changeDaXian(Number(e.target.value))}
+            className="min-w-0 flex-1 cursor-pointer bg-transparent text-[10px] font-medium text-center outline-none"
+            style={{
+              color: view === 'daxian' ? 'var(--t-gold)' : 'var(--t-faint)',
+              textAlign: 'center',
+            }}
+          >
+            {chart.daXians.length === 0 && <option value={-1}>大限</option>}
+            {chart.daXians.map((dx, index) => (
+              <option
+                key={`${dx.startAge}-${dx.endAge}-${dx.palaceBranch}`}
+                value={index}
+                style={{ background: 'var(--t-bg)', color: 'var(--t-text)' }}
+              >
+                大限 {dx.startAge}–{dx.endAge}岁 · {dx.palaceName}{index === chart.currentDaXianIndex ? '（当前）' : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            aria-label="下一限"
+            title="下一限"
+            disabled={selectedDaXianIndex < 0 || selectedDaXianIndex >= chart.daXians.length - 1}
+            onClick={() => changeDaXian(moveDaXianSelection(chart, selectedDaXianIndex, 1))}
+            className="text-[11px] w-4 h-4 flex items-center justify-center rounded disabled:opacity-20"
+            style={{ color: 'var(--t-faint)', flexShrink: 0 }}
+          >
+            ›
+          </button>
+        </div>
 
         {/* 流年 — 含年份切换 */}
         <div
@@ -115,9 +191,9 @@ export default function TimeNav({
           >
             流年
           </button>
-          {/* 年份 +/- */}
           <div className="flex items-center gap-0.5">
             <button
+              aria-label="上一年"
               onClick={e => { e.stopPropagation(); onYearChange(liunianYear - 1); if (view !== 'liunian') onViewChange('liunian'); }}
               className="text-[9px] w-4 h-4 flex items-center justify-center rounded"
               style={{ color: 'var(--t-faint)' }}
@@ -132,6 +208,7 @@ export default function TimeNav({
               {liunianYear}
             </span>
             <button
+              aria-label="下一年"
               onClick={e => { e.stopPropagation(); onYearChange(liunianYear + 1); if (view !== 'liunian') onViewChange('liunian'); }}
               className="text-[9px] w-4 h-4 flex items-center justify-center rounded"
               style={{ color: 'var(--t-faint)' }}
@@ -151,7 +228,9 @@ export default function TimeNav({
           className="flex items-center gap-2 mt-1.5 px-1 flex-wrap"
         >
           <span className="text-[9px]" style={{ color: 'var(--t-faint)' }}>
-            {view === 'daxian' ? '大限' : `${liunianYear}`}·{overlayInfo.stemName}年四化：
+            {view === 'daxian'
+              ? `大限·${selectedDx?.palaceName ?? ''}${overlayInfo.stemName}宫四化：`
+              : `${liunianYear}·${overlayInfo.stemName}年四化：`}
           </span>
           {(['禄', '权', '科', '忌'] as const).map(sh => {
             const starName = Object.keys(overlayInfo.overlay).find(k => overlayInfo.overlay[k] === sh);

@@ -5,7 +5,12 @@ import type { ZiweiChart, Palace, Star } from '@/lib/ziwei/types';
 import { BRANCHES, STEMS } from '@/lib/ziwei/constants';
 import { boshiShenName, jiangQianShenName, suiQianShenName } from '@/lib/ziwei/shier-shen';
 import PalaceCell from './PalaceCell';
-import TimeNav, { type TimeView, getYearStemIndex, buildSiHuaOverlay } from './TimeNav';
+import TimeNav, {
+  type TimeView,
+  getYearStemIndex,
+  buildSiHuaOverlay,
+  getInitialDaXianIndex,
+} from './TimeNav';
 
 interface ChartBoardProps {
   chart: ZiweiChart;
@@ -57,16 +62,19 @@ export default function ChartBoard({ chart, onStarSelect, onPalaceSelect, onSiHu
   const [selectedBranch, setSelectedBranch] = useState<number | null>(null);
   const [timeView, setTimeView] = useState<TimeView>('mingpan');
   const [liunianYear, setLiunianYear] = useState<number>(new Date().getFullYear());
+  const [selectedDaXianIndex, setSelectedDaXianIndex] = useState<number>(() => getInitialDaXianIndex(chart));
 
   const palaceMap: Record<number, Palace> = {};
   chart.palaces.forEach(p => { palaceMap[p.branch] = p; });
 
-  // 计算当前叠加四化数据（大限或流年）
-  const currentDx = chart.daXians[chart.currentDaXianIndex];
+  // 大限视图使用用户选择的宫位；流年仍按所选年份计算。
+  const selectedDx = chart.daXians[selectedDaXianIndex];
+  const selectedDxPalace = selectedDx
+    ? chart.palaces.find(p => p.branch === selectedDx.palaceBranch)
+    : undefined;
   const overlayData: Record<string, string> = (() => {
-    if (timeView === 'daxian' && currentDx) {
-      const dxPalace = chart.palaces.find(p => p.branch === currentDx.palaceBranch);
-      if (dxPalace) return buildSiHuaOverlay(dxPalace.stem);
+    if (timeView === 'daxian' && selectedDxPalace) {
+      return buildSiHuaOverlay(selectedDxPalace.stem);
     }
     if (timeView === 'liunian') {
       return buildSiHuaOverlay(getYearStemIndex(liunianYear));
@@ -78,8 +86,8 @@ export default function ChartBoard({ chart, onStarSelect, onPalaceSelect, onSiHu
   // 十二神煞只在展示层计算：岁前/将前按当前视图支，博士始终按生年干与性别。
   const shierShenAnchor = timeView === 'liunian'
     ? (((liunianYear - 4) % 12) + 12) % 12
-    : timeView === 'daxian' && currentDx
-    ? currentDx.palaceBranch
+    : timeView === 'daxian' && selectedDxPalace
+    ? selectedDxPalace.branch
     : chart.lunarInfo.yearBranch;
 
   const handlePalaceClick = (branch: number) => {
@@ -102,8 +110,10 @@ export default function ChartBoard({ chart, onStarSelect, onPalaceSelect, onSiHu
         chart={chart}
         view={timeView}
         liunianYear={liunianYear}
+        selectedDaXianIndex={selectedDaXianIndex}
         onViewChange={setTimeView}
         onYearChange={setLiunianYear}
+        onDaXianChange={setSelectedDaXianIndex}
       />
 
       {/* 命盘标题 */}
@@ -149,6 +159,8 @@ export default function ChartBoard({ chart, onStarSelect, onPalaceSelect, onSiHu
                 onStarClick={(star) => onStarSelect?.(star, palace)}
                 isSelected={selectedBranch === branch}
                 isSanFang={!!(sanFangSet?.has(branch) && selectedBranch !== branch)}
+                isDaXianView={timeView === 'daxian'}
+                isSelectedDaXian={selectedDxPalace?.branch === branch}
                 delay={i * 0.04}
                 overlayStarSiHua={Object.keys(overlayData).length > 0 ? overlayData : undefined}
                 overlayLabel={overlayLabel}
@@ -179,12 +191,18 @@ export default function ChartBoard({ chart, onStarSelect, onPalaceSelect, onSiHu
             </div>
           </div>
 
-          {chart.currentDaXianIndex >= 0 && (() => {
-            const dx = chart.daXians[chart.currentDaXianIndex];
+          {(() => {
+            const activeIndex = timeView === 'daxian' ? selectedDaXianIndex : chart.currentDaXianIndex;
+            const dx = chart.daXians[activeIndex];
+            if (!dx) return null;
+            const isCurrent = activeIndex === chart.currentDaXianIndex;
             return (
               <div className="border border-purple-500/30 rounded-lg px-3 py-1.5 text-center"
+                data-daxian-view={timeView === 'daxian' ? 'selected' : 'current'}
                 style={{ background: 'rgba(147,51,234,0.06)' }}>
-                <div className="text-[8px] text-purple-500/80 mb-0.5 tracking-wider">当前大限</div>
+                <div className="text-[8px] text-purple-500/80 mb-0.5 tracking-wider">
+                  {isCurrent ? '当前大限' : '所选大限'}
+                </div>
                 <div className="text-[12px] text-purple-400 font-medium tabular-nums">{dx.startAge}–{dx.endAge}岁</div>
                 <div className="text-[9px] text-purple-500/60">{dx.palaceName}</div>
               </div>
